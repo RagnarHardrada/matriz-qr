@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Matriz de habilidades QR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: una columna de 560px; barra de sesión fija arriba; tarjetas por sección; el estado se lee por franjas de color */
+  --bg:#E8EBEE; --surface:#FFFFFF; --ink:#1C2025; --muted:#58616A; --line:#D2D7DC;
+  --accent:#6B1D38; --accent-ink:#FFFFFF; --accent-soft:#F2E3E9;
+  --ok:#1D7843; --ok-bg:#E1F0E7; --warn:#8C5800; --warn-bg:#FAECD0; --bad:#B42318; --bad-bg:#FBE2DF; --na:#58616A; --na-bg:#E8EBEE;
+  --font-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --radius:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121519; --surface:#1B1F24; --ink:#E8EBEE; --muted:#9AA3AD; --line:#2D333A;
+    --accent:#E58FAD; --accent-ink:#24101A; --accent-soft:#3A1E2A;
+    --ok:#62CB8E; --ok-bg:#15301F; --warn:#F0B54A; --warn-bg:#33270F; --bad:#FF8476; --bad-bg:#3B1B18; --na:#9AA3AD; --na-bg:#23282E;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121519; --surface:#1B1F24; --ink:#E8EBEE; --muted:#9AA3AD; --line:#2D333A;
+  --accent:#E58FAD; --accent-ink:#24101A; --accent-soft:#3A1E2A;
+  --ok:#62CB8E; --ok-bg:#15301F; --warn:#F0B54A; --warn-bg:#33270F; --bad:#FF8476; --bad-bg:#3B1B18; --na:#9AA3AD; --na-bg:#23282E;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--font-body);-webkit-text-size-adjust:100%}
+body.oculto #app{filter:blur(18px)}
+@media print{ body *{display:none !important} body::after{content:"La impresión está deshabilitada en esta herramienta.";display:block;padding:40px;font:16px sans-serif} }
+
+header.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:560px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:10px}
+.brand{font:700 21px/1 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
+.tag{font:500 10px/1 var(--font-mono);padding:4px 6px;border:1px solid var(--accent);color:var(--accent);border-radius:4px;letter-spacing:.08em}
+.session{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.25;text-align:right}
+.session b{display:block;font-weight:600}
+.session .s-full span{color:var(--muted);display:block}
+.ini-s{display:none;width:36px;height:36px;font-size:15px}
+@media (max-width:460px){ .session .s-full{display:none} .ini-s{display:grid} .tag-u{display:none} .brand{font-size:19px} }
+nav.tabs{max-width:560px;margin:0 auto;padding:0 12px;display:flex;gap:2px;overflow-x:auto}
+nav.tabs button{font:600 14px/1 var(--font-body);background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:12px 8px;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+main.wrap{max-width:560px;margin:0 auto;padding:20px 16px 56px;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:32px;line-height:1.02}
+h2{font-size:21px;line-height:1.1;text-transform:uppercase;letter-spacing:.03em}
+h3{font-size:19px;line-height:1.15}
+p{margin:0}
+.lead{color:var(--muted);max-width:60ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:grid;gap:12px}
+.section{display:grid;gap:10px}
+.muted{color:var(--muted)}
+.mono{font-family:var(--font-mono);font-weight:500;font-variant-numeric:tabular-nums}
+.small{font-size:13px;line-height:1.4}
+
+.btn{font:600 15px/1.1 var(--font-body);border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:12px 16px;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.big{width:100%;min-height:56px;font-size:17px}
+.btn.small{padding:8px 12px;min-height:36px;font-size:14px}
+.btn.link{justify-self:start;border:0;background:none;color:var(--accent);padding:8px 0;min-height:auto;text-decoration:underline;text-underline-offset:3px}
+.btn:focus-visible,input:focus-visible,label.btn:focus-within,nav.tabs button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+label.btn input{position:absolute;opacity:0;width:1px;height:1px}
+
+.acct{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;width:100%;text-align:left;padding:12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit}
+.acct:hover{border-color:var(--accent)}
+.acct:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.ini{width:44px;height:44px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font:700 18px/1 var(--font-display)}
+.acct b{display:block}
+.acct .small{color:var(--muted)}
+.lvl{font:500 11px/1 var(--font-mono);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:4px 6px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 12px/1 var(--font-body);padding:6px 9px;border-radius:999px;white-space:nowrap}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.k-ok{color:var(--ok);background:var(--ok-bg)}
+.k-warn{color:var(--warn);background:var(--warn-bg)}
+.k-bad{color:var(--bad);background:var(--bad-bg)}
+.k-na{color:var(--na);background:var(--na-bg)}
+
+.msg{border-radius:8px;padding:10px 12px;font-size:14px}
+.msg:empty{display:none}
+
+form.inline{display:flex;gap:8px}
+form.inline input{flex:1;min-width:0;font:500 16px/1 var(--font-mono);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-height:44px;text-transform:uppercase}
+.tests{display:flex;flex-wrap:wrap;gap:8px}
+.tests button{font:500 13px/1.2 var(--font-body);text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:8px 10px;cursor:pointer}
+.tests button .mono{display:block;font-size:12px;color:var(--muted)}
+
+.protegido{position:relative;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.wm{position:absolute;inset:0;pointer-events:none;background-repeat:repeat;opacity:.12;z-index:3;border-radius:inherit}
+
+.who{display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center}
+.foto{width:72px;height:88px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font:700 28px/1 var(--font-display);position:relative}
+.foto::after{content:"foto";position:absolute;bottom:4px;font:500 9px/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.who h1{font-size:27px}
+.who .meta{color:var(--muted);font-size:14px;line-height:1.35;margin-top:4px}
+
+.verdict{border-radius:var(--radius);padding:14px 16px;border-left:8px solid currentColor;display:grid;gap:4px}
+.verdict h2{color:inherit;font-size:24px;text-transform:none;letter-spacing:.01em}
+.verdict p{color:var(--ink);font-size:15px}
+
+.rows{display:grid}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 0;border-top:1px solid var(--line);align-items:start}
+.row:first-child{border-top:0;padding-top:2px}
+.row .t{font-weight:600}
+.row .d{grid-column:1 / -1;font-size:13px;color:var(--muted)}
+.row .acts{grid-column:1 / -1;display:flex;justify-content:flex-end}
+.row.bad .t{color:var(--bad)}
+
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+[data-act="reset"]{justify-self:start}
+select{font:500 14px/1.2 var(--font-body);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-height:40px;max-width:170px}
+select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row .t .sub{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.locked{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;color:var(--muted);font-size:14px}
+.locked svg{width:24px;height:24px}
+
+.foot{font-size:12px;color:var(--muted);line-height:1.45}
+
+.modal{position:fixed;inset:0;background:rgba(8,10,12,.62);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:94%;overflow:auto;border-radius:14px 14px 0 0;padding:16px 16px 24px;display:grid;gap:12px}
+.sheet-head{display:flex;align-items:flex-start;gap:12px;justify-content:space-between}
+.docpage{background:#fff;color:#1C2025;border:1px solid var(--line);border-radius:6px;padding:20px;display:grid;gap:14px;min-height:420px;align-content:start}
+.doc-band{font:700 15px/1 "Barlow Condensed","Arial Narrow",sans-serif;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid #1C2025;padding-bottom:8px}
+.docpage dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:14px}
+.docpage dt{color:#58616A}
+.docpage dd{margin:0;font-weight:500}
+.doc-scan{border:1px dashed #9AA3AD;border-radius:6px;min-height:170px;display:grid;place-items:center;text-align:center;padding:16px;color:#58616A;font-size:13px;background:repeating-linear-gradient(135deg,#F4F5F7 0 10px,#FFFFFF 10px 20px)}
+
+.log-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+.stat b{display:block;font:700 30px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.log-row{display:grid;grid-template-columns:56px 1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;align-items:start}
+.log-row:first-child{border-top:0}
+.log-row .h{font-family:var(--font-mono);font-size:12px;color:var(--muted);padding-top:2px}
+.log-row .w{font-size:12px;color:var(--muted)}
+
+.creds{display:grid;gap:18px}
+.cred-pair{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.cred{width:100%;max-width:340px;aspect-ratio:85.6/54;background:#fff;color:#1C2025;border-radius:12px;border:1px solid #C9CED4;display:grid;grid-template-columns:1fr 36%;overflow:hidden;font-family:var(--font-body)}
+.cred-l{display:grid;grid-template-rows:auto 1fr;min-width:0}
+.cred-band{background:#6B1D38;color:#fff;font:700 11px/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:7px 10px}
+.cred-body{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:9px 10px;align-content:start}
+.cred-foto{width:44px;height:54px;border-radius:4px;background:#F2E3E9;color:#6B1D38;display:grid;place-items:center;font:700 18px/1 "Barlow Condensed",sans-serif}
+.cred-n{font:700 15px/1.05 "Barlow Condensed","Arial Narrow",sans-serif}
+.cred-id{font:500 10px/1.2 "IBM Plex Mono",monospace;margin-top:3px}
+.cred-p{font-size:9.5px;line-height:1.25;color:#58616A;margin-top:3px}
+.cred-note{grid-column:1 / -1;font-size:8.5px;line-height:1.25;color:#58616A;border-top:1px solid #E1E4E8;padding-top:5px}
+.cred-r{display:grid;place-items:center;align-content:center;gap:2px;padding:8px 8px 8px 0}
+.cred-r svg,.sticker svg{width:100%;height:auto;display:block}
+.cred-r .mono{font-size:9px}
+.sticker{width:132px;background:#fff;color:#1C2025;border:2px solid #1C2025;border-radius:10px;padding:8px;text-align:center;display:grid;gap:4px}
+.sticker .mono{font-size:12px}
+.sticker .s{font:700 11px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;text-transform:uppercase;letter-spacing:.06em}
+
+.sec-item{display:grid;gap:4px;padding:12px 0;border-top:1px solid var(--line)}
+.sec-item:first-child{border-top:0;padding-top:0}
+.sec-item h3{font-size:18px}
+.sec-item p{font-size:15px;color:var(--muted)}
+.sec-item.real{border-left:4px solid var(--accent);padding-left:12px}
+
+@media (prefers-reduced-motion: no-preference){ .fade{animation:fade .18s ease-out} @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+const D = {"prefix": "MATRIZ-HAB:", "workers": [{"id": "MH-0142", "nombre": "Luis Fernando Garza Treviño", "puesto": "Operador de equipo móvil", "area": "Patio de escoria", "turno": "C · noche", "licencia": {"num": "LI-26-0142", "emitida": -151, "vence": 214}, "equipos": [{"eq": "Cargador frontal (payloader)", "modelo": "CAT 980", "evaluado": -150, "vence": 215}, {"eq": "Minicargador", "modelo": "Bobcat S650", "evaluado": -185, "vence": 180}], "dc3": [{"curso": "Operación segura de cargador frontal", "horas": 16, "emitida": -150, "vence": 215}, {"curso": "Manejo defensivo", "horas": 8, "emitida": -300, "vence": 65}], "ept": {"emitido": -40, "vence": 325}}, {"id": "MH-0187", "nombre": "Jorge Alberto Saldívar Ríos", "puesto": "Operador de portaollas", "area": "Procesamiento", "turno": "A · día", "licencia": {"num": "LI-26-0187", "emitida": -65, "vence": 300}, "equipos": [{"eq": "Portaollas", "modelo": "Kress 2400", "evaluado": -343, "vence": 22}, {"eq": "Cargador frontal (payloader)", "modelo": "CAT 980", "evaluado": -225, "vence": 140}], "dc3": [{"curso": "Operación de portaollas", "horas": 24, "emitida": -343, "vence": 22}, {"curso": "Operación segura de cargador frontal", "horas": 16, "emitida": -225, "vence": 140}], "ept": {"emitido": -175, "vence": 190}}, {"id": "MH-0203", "nombre": "María Guadalupe Leal Cantú", "puesto": "Operadora de montacargas", "area": "Embarques", "turno": "B · tarde", "licencia": {"num": "LI-26-0203", "emitida": -105, "vence": 260}, "equipos": [{"eq": "Montacargas", "modelo": "Toyota 8FGU25", "evaluado": -105, "vence": 260}, {"eq": "Minicargador", "modelo": "Bobcat S650", "evaluado": -270, "vence": 95}], "dc3": [{"curso": "Operación segura de montacargas", "horas": 16, "emitida": -105, "vence": 260}, {"curso": "Bloqueo y etiquetado", "horas": 8, "emitida": -165, "vence": 200}], "ept": {"emitido": -353, "vence": 12}}, {"id": "MH-0219", "nombre": "Héctor Iván Villarreal Montemayor", "puesto": "Operador de excavadora", "area": "Patio de escoria", "turno": "C · noche", "licencia": {"num": "LI-26-0219", "emitida": -245, "vence": 120}, "equipos": [{"eq": "Excavadora", "modelo": "CAT 336", "evaluado": -374, "vence": -9}, {"eq": "Camión de volteo", "modelo": "Volvo A40G", "evaluado": -195, "vence": 170}], "dc3": [{"curso": "Operación de excavadora hidráulica", "horas": 24, "emitida": -374, "vence": -9}, {"curso": "Operación de camión articulado", "horas": 16, "emitida": -195, "vence": 170}], "ept": {"emitido": -125, "vence": 240}}, {"id": "MH-0255", "nombre": "Ricardo Tamez Elizondo", "puesto": "Operador de camión de volteo", "area": "Procesamiento", "turno": "A · día", "licencia": {"num": "LI-25-0255", "emitida": -368, "vence": -3}, "equipos": [{"eq": "Camión de volteo", "modelo": "Volvo A40G", "evaluado": -275, "vence": 90}, {"eq": "Cargador frontal (payloader)", "modelo": "CAT 980", "evaluado": -320, "vence": 45}], "dc3": [{"curso": "Operación de camión articulado", "horas": 16, "emitida": -275, "vence": 90}, {"curso": "Operación segura de cargador frontal", "horas": 16, "emitida": -320, "vence": 45}], "ept": {"emitido": -95, "vence": 270}}, {"id": "MH-0261", "nombre": "Daniel Esquivel Peña", "puesto": "Ayudante general", "area": "Taller", "turno": "B · tarde", "licencia": null, "equipos": [], "entrenamiento": "Montacargas · práctica supervisada, 6 de 16 horas", "dc3": [{"curso": "Inducción de seguridad en planta", "horas": 8, "emitida": -30, "vence": 335}], "ept": {"emitido": -30, "vence": 335}}]};
+const QRS = {"MH-0142": "<svg viewBox=\"0 0 41 41\" class=\"segno\"><path fill=\"#fff\" d=\"M0 0h41v41h-41z\"/><path class=\"qrline\" stroke=\"#111\" d=\"M4 4.5h7m1 0h6m3 0h4m1 0h2m2 0h7m-33 1h1m5 0h1m1 0h2m1 0h1m1 0h1m4 0h1m1 0h1m1 0h3m1 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m2 0h1m2 0h1m2 0h3m1 0h2m5 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h3m5 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m2 0h3m1 0h2m2 0h1m2 0h1m3 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m3 0h1m1 0h1m1 0h1m4 0h1m1 0h2m1 0h1m1 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h2m1 0h2m1 0h1m2 0h2m1 0h1m-21 1h1m1 0h2m1 0h3m1 0h3m2 0h1m1 0h2m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m-28 1h1m3 0h4m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1m-33 1h2m1 0h2m1 0h3m3 0h1m1 0h1m1 0h2m5 0h1m3 0h3m1 0h2m-32 1h1m1 0h2m3 0h2m1 0h1m1 0h2m3 0h2m2 0h6m1 0h1m2 0h1m-32 1h2m1 0h3m3 0h2m3 0h1m2 0h1m4 0h2m3 0h2m1 0h2m-30 1h3m1 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h2m5 0h1m2 0h2m-32 1h3m1 0h1m1 0h2m1 0h4m1 0h6m2 0h1m1 0h1m1 0h4m-30 1h6m1 0h1m1 0h1m2 0h3m1 0h1m1 0h2m1 0h1m1 0h1m1 0h6m-31 1h1m2 0h1m1 0h6m2 0h1m1 0h2m1 0h1m1 0h3m2 0h2m1 0h3m-31 1h2m5 0h2m1 0h3m2 0h1m1 0h1m2 0h5m1 0h1m1 0h2m1 0h2m-33 1h2m1 0h1m1 0h2m1 0h2m2 0h4m1 0h1m3 0h2m2 0h4m1 0h1m-31 1h1m2 0h1m3 0h1m2 0h2m7 0h2m1 0h1m1 0h3m1 0h1m2 0h1m-32 1h1m2 0h1m2 0h7m1 0h2m2 0h5m6 0h2m1 0h1m-33 1h1m4 0h1m5 0h1m3 0h1m2 0h2m1 0h6m3 0h1m1 0h1m-31 1h3m1 0h1m2 0h2m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m2 0h2m-32 1h1m1 0h2m3 0h2m3 0h1m2 0h1m1 0h3m2 0h1m1 0h2m1 0h2m2 0h1m-33 1h1m1 0h1m1 0h6m3 0h3m1 0h1m2 0h1m1 0h1m1 0h6m-22 1h1m1 0h1m4 0h3m1 0h1m2 0h3m3 0h2m-30 1h7m1 0h2m1 0h1m2 0h1m1 0h1m2 0h1m2 0h3m1 0h1m1 0h1m-29 1h1m5 0h1m1 0h1m2 0h2m2 0h2m3 0h2m1 0h2m3 0h4m-32 1h1m1 0h3m1 0h1m2 0h1m1 0h4m2 0h1m3 0h1m1 0h6m1 0h1m-31 1h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h1m2 0h2m4 0h1m3 0h1m1 0h1m2 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m2 0h2m4 0h1m1 0h1m3 0h1m1 0h2m2 0h1m-31 1h1m5 0h1m3 0h2m3 0h4m1 0h1m3 0h1m1 0h3m3 0h1m-33 1h7m1 0h1m1 0h1m1 0h4m1 0h3m1 0h1m1 0h1m4 0h3\"/><\/svg>", "MH-0187": "<svg viewBox=\"0 0 41 41\" class=\"segno\"><path fill=\"#fff\" d=\"M0 0h41v41h-41z\"/><path class=\"qrline\" stroke=\"#111\" d=\"M4 4.5h7m2 0h5m3 0h4m1 0h2m2 0h7m-33 1h1m5 0h1m2 0h2m1 0h4m1 0h1m3 0h2m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h1m3 0h2m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m4 0h3m5 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h2m2 0h5m1 0h1m7 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m6 0h1m5 0h1m1 0h2m-25 1h1m1 0h5m5 0h4m1 0h2m3 0h1m1 0h1m1 0h5m-26 1h1m3 0h4m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1m-33 1h1m1 0h1m3 0h2m3 0h1m3 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m-31 1h1m2 0h1m2 0h2m1 0h3m1 0h3m4 0h1m1 0h1m2 0h1m1 0h5m-33 1h3m1 0h1m1 0h1m3 0h3m2 0h1m2 0h1m4 0h2m3 0h2m1 0h2m-33 1h1m1 0h1m1 0h2m1 0h4m1 0h6m5 0h2m1 0h1m2 0h1m1 0h2m-27 1h3m3 0h3m2 0h1m2 0h2m3 0h2m2 0h3m-32 1h2m2 0h2m1 0h1m1 0h1m1 0h4m1 0h1m1 0h4m1 0h1m1 0h6m-29 1h1m3 0h1m3 0h1m1 0h3m1 0h2m4 0h4m1 0h2m3 0h1m-33 1h1m2 0h2m3 0h2m1 0h1m4 0h5m2 0h1m1 0h3m1 0h2m1 0h1m-33 1h2m1 0h1m1 0h2m1 0h1m1 0h1m1 0h4m1 0h1m3 0h2m2 0h4m1 0h1m-31 1h3m1 0h2m1 0h4m1 0h2m1 0h1m1 0h3m1 0h3m1 0h1m1 0h6m-33 1h1m4 0h2m1 0h7m1 0h1m3 0h1m3 0h2m1 0h3m1 0h2m-33 1h1m4 0h1m5 0h2m1 0h2m2 0h2m1 0h6m3 0h1m1 0h1m-33 1h1m1 0h6m2 0h2m3 0h3m3 0h1m2 0h1m2 0h5m-32 1h1m2 0h1m3 0h2m1 0h1m4 0h1m5 0h4m1 0h2m1 0h4m-33 1h1m3 0h6m1 0h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h6m-22 1h1m1 0h3m1 0h1m1 0h1m1 0h5m1 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m2 0h1m1 0h2m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h1m1 0h3m1 0h3m3 0h2m1 0h2m3 0h4m-32 1h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h1m2 0h1m1 0h1m3 0h6m2 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m1 0h6m1 0h1m1 0h5m2 0h5m-33 1h1m1 0h3m1 0h1m1 0h2m2 0h2m4 0h1m1 0h1m3 0h1m1 0h2m2 0h1m-31 1h1m5 0h1m2 0h3m2 0h1m1 0h1m4 0h1m1 0h1m4 0h3m-31 1h7m1 0h2m1 0h1m2 0h1m1 0h2m4 0h4m1 0h1m1 0h1m1 0h1\"/><\/svg>", "MH-0203": "<svg viewBox=\"0 0 41 41\" class=\"segno\"><path fill=\"#fff\" d=\"M0 0h41v41h-41z\"/><path class=\"qrline\" stroke=\"#111\" d=\"M4 4.5h7m2 0h5m3 0h4m1 0h2m2 0h7m-33 1h1m5 0h1m5 0h4m1 0h1m3 0h2m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m2 0h1m3 0h2m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m4 0h3m5 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m4 0h1m1 0h1m2 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h2m1 0h1m1 0h4m1 0h1m7 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m3 0h1m2 0h1m5 0h1m1 0h2m-25 1h1m1 0h5m5 0h4m1 0h2m3 0h1m1 0h1m1 0h5m-31 1h1m4 0h1m3 0h4m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1m-31 1h1m1 0h1m1 0h2m1 0h3m3 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m-32 1h2m5 0h2m1 0h3m1 0h3m4 0h1m1 0h1m2 0h1m1 0h5m-32 1h2m3 0h1m2 0h1m1 0h2m2 0h1m2 0h1m4 0h2m3 0h2m1 0h2m-33 1h2m1 0h2m3 0h2m2 0h6m5 0h2m1 0h1m2 0h1m1 0h2m-31 1h1m3 0h1m1 0h1m3 0h3m2 0h1m2 0h2m3 0h2m2 0h3m-32 1h2m1 0h3m2 0h2m1 0h4m1 0h1m1 0h2m1 0h1m1 0h1m1 0h6m-25 1h1m3 0h1m1 0h3m1 0h2m4 0h4m1 0h2m3 0h1m-30 1h2m3 0h1m2 0h1m4 0h5m2 0h1m1 0h3m1 0h2m1 0h1m-33 1h2m1 0h4m1 0h1m3 0h4m1 0h1m3 0h2m2 0h4m1 0h1m-31 1h1m1 0h1m4 0h4m1 0h1m2 0h1m1 0h3m1 0h3m1 0h1m1 0h6m-32 1h1m1 0h1m1 0h2m1 0h4m1 0h2m1 0h1m3 0h1m3 0h2m1 0h3m1 0h2m-33 1h1m1 0h1m4 0h1m4 0h1m1 0h2m2 0h2m1 0h6m3 0h1m1 0h1m-33 1h1m1 0h5m3 0h3m2 0h3m3 0h1m2 0h1m2 0h5m-32 1h1m7 0h1m1 0h3m2 0h1m5 0h4m1 0h2m1 0h4m-33 1h1m3 0h6m1 0h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h6m-22 1h5m1 0h1m1 0h1m1 0h5m1 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m3 0h4m1 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h1m1 0h7m3 0h2m1 0h2m3 0h4m-32 1h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h1m2 0h1m1 0h1m3 0h6m2 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m3 0h5m1 0h1m1 0h5m2 0h5m-33 1h1m1 0h3m1 0h1m1 0h2m3 0h1m4 0h1m5 0h1m1 0h2m2 0h1m-31 1h1m5 0h1m2 0h2m3 0h1m1 0h1m2 0h1m1 0h1m1 0h1m4 0h3m-31 1h7m1 0h2m1 0h1m2 0h1m1 0h2m4 0h4m1 0h1m1 0h1m1 0h1\"/><\/svg>", "MH-0219": "<svg viewBox=\"0 0 41 41\" class=\"segno\"><path fill=\"#fff\" d=\"M0 0h41v41h-41z\"/><path class=\"qrline\" stroke=\"#111\" d=\"M4 4.5h7m3 0h4m3 0h4m1 0h2m2 0h7m-33 1h1m5 0h1m3 0h1m1 0h4m1 0h1m3 0h2m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m4 0h1m3 0h2m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m2 0h1m1 0h3m5 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h4m1 0h1m2 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h2m1 0h1m1 0h4m1 0h1m7 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m6 0h1m5 0h1m1 0h2m-25 1h1m1 0h5m5 0h4m1 0h2m3 0h1m1 0h1m1 0h5m-26 1h1m4 0h3m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1m-33 1h3m2 0h3m1 0h1m1 0h1m3 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m-31 1h1m5 0h3m1 0h2m1 0h3m4 0h1m1 0h1m2 0h1m1 0h5m-32 1h3m2 0h1m2 0h4m2 0h1m2 0h1m4 0h2m3 0h2m1 0h2m-33 1h2m2 0h1m2 0h1m1 0h1m2 0h6m5 0h2m1 0h1m2 0h1m1 0h2m-30 1h1m2 0h3m3 0h3m2 0h1m2 0h2m3 0h2m2 0h3m-32 1h6m1 0h3m2 0h3m1 0h1m1 0h1m2 0h1m1 0h1m1 0h6m-25 1h1m3 0h5m1 0h2m1 0h1m2 0h4m1 0h2m3 0h1m-30 1h2m3 0h1m2 0h1m1 0h1m2 0h5m2 0h1m1 0h3m1 0h2m1 0h1m-30 1h1m2 0h1m1 0h3m1 0h1m1 0h2m1 0h1m3 0h2m2 0h4m1 0h1m-29 1h1m4 0h4m1 0h1m2 0h1m1 0h3m1 0h3m1 0h1m1 0h6m-33 1h1m3 0h3m4 0h2m3 0h1m3 0h1m3 0h2m1 0h3m1 0h2m-33 1h2m1 0h1m7 0h1m3 0h1m2 0h2m1 0h6m3 0h1m1 0h1m-33 1h1m1 0h5m1 0h1m1 0h1m4 0h3m2 0h2m2 0h1m2 0h5m-32 1h1m9 0h1m4 0h1m5 0h4m1 0h2m1 0h4m-33 1h1m3 0h6m1 0h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h6m-22 1h5m1 0h1m1 0h1m1 0h5m1 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m4 0h3m1 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h2m1 0h2m1 0h3m3 0h2m1 0h2m3 0h4m-32 1h1m1 0h3m1 0h1m1 0h2m2 0h1m2 0h1m2 0h1m1 0h1m3 0h6m2 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m2 0h5m1 0h1m1 0h5m2 0h5m-33 1h1m1 0h3m1 0h1m1 0h2m1 0h3m4 0h1m5 0h1m1 0h2m2 0h1m-31 1h1m5 0h1m2 0h4m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m4 0h3m-31 1h7m1 0h2m1 0h1m2 0h1m1 0h2m4 0h4m1 0h1m1 0h1m1 0h1\"/><\/svg>", "MH-0255": "<svg viewBox=\"0 0 41 41\" class=\"segno\"><path fill=\"#fff\" d=\"M0 0h41v41h-41z\"/><path class=\"qrline\" stroke=\"#111\" d=\"M4 4.5h7m2 0h5m3 0h4m1 0h2m2 0h7m-33 1h1m5 0h1m3 0h1m1 0h4m1 0h1m3 0h2m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m4 0h1m3 0h2m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m5 0h3m5 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h2m1 0h6m1 0h1m7 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m2 0h1m3 0h1m5 0h1m1 0h2m-25 1h1m1 0h5m4 0h5m1 0h2m3 0h1m1 0h1m1 0h5m-31 1h1m3 0h2m4 0h3m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1m-33 1h3m3 0h2m3 0h1m3 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m-31 1h1m3 0h1m1 0h2m2 0h2m1 0h3m4 0h1m1 0h1m2 0h1m1 0h5m-32 1h3m1 0h2m4 0h1m3 0h1m2 0h1m4 0h2m3 0h2m1 0h2m-33 1h1m1 0h3m4 0h2m2 0h5m5 0h2m1 0h1m2 0h1m1 0h2m-30 1h1m2 0h3m2 0h4m2 0h1m2 0h2m3 0h2m2 0h3m-32 1h3m1 0h2m3 0h1m3 0h2m1 0h1m1 0h1m1 0h2m1 0h1m1 0h6m-29 1h1m3 0h1m3 0h5m1 0h2m4 0h4m1 0h2m3 0h1m-30 1h1m4 0h2m1 0h1m1 0h1m2 0h5m2 0h1m1 0h3m1 0h2m1 0h1m-33 1h2m1 0h4m1 0h1m3 0h1m2 0h1m1 0h1m3 0h2m2 0h4m1 0h1m-31 1h1m1 0h1m4 0h2m3 0h4m1 0h3m1 0h3m1 0h1m1 0h6m-33 1h2m1 0h2m1 0h1m3 0h4m2 0h1m3 0h1m3 0h2m1 0h3m1 0h2m-33 1h2m1 0h1m1 0h1m1 0h1m7 0h1m2 0h2m1 0h6m3 0h1m1 0h1m-33 1h1m2 0h6m1 0h1m4 0h3m2 0h2m2 0h1m2 0h5m-32 1h1m2 0h1m4 0h1m1 0h2m3 0h1m4 0h5m1 0h2m1 0h4m-33 1h1m3 0h3m1 0h2m1 0h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h6m-22 1h5m1 0h1m1 0h1m1 0h5m1 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m2 0h1m1 0h3m1 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h1m2 0h2m1 0h3m3 0h2m1 0h2m3 0h4m-32 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h1m3 0h6m2 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m2 0h5m1 0h1m1 0h5m2 0h5m-33 1h1m1 0h3m1 0h1m1 0h2m1 0h3m4 0h1m5 0h1m1 0h2m2 0h1m-31 1h1m5 0h1m2 0h4m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m4 0h3m-31 1h7m1 0h2m4 0h1m1 0h2m4 0h4m1 0h1m1 0h1m1 0h1\"/><\/svg>", "MH-0261": "<svg viewBox=\"0 0 41 41\" class=\"segno\"><path fill=\"#fff\" d=\"M0 0h41v41h-41z\"/><path class=\"qrline\" stroke=\"#111\" d=\"M4 4.5h7m3 0h4m3 0h4m1 0h2m2 0h7m-33 1h1m5 0h1m2 0h1m2 0h4m1 0h1m3 0h2m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m4 0h1m3 0h2m1 0h3m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h3m5 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h1m1 0h1m2 0h1m2 0h1m1 0h1m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h2m3 0h4m1 0h1m7 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m6 0h1m5 0h1m1 0h2m-25 1h1m1 0h5m5 0h4m1 0h2m3 0h1m1 0h1m1 0h5m-27 1h2m3 0h4m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m1 0h1m-31 1h1m1 0h1m1 0h2m3 0h1m3 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m-28 1h1m2 0h3m1 0h2m1 0h3m4 0h1m1 0h1m2 0h1m1 0h5m-31 1h2m2 0h1m1 0h2m1 0h1m3 0h1m2 0h1m4 0h2m3 0h2m1 0h2m-33 1h1m3 0h2m3 0h1m2 0h6m5 0h2m1 0h1m2 0h1m1 0h2m-31 1h2m2 0h3m4 0h2m2 0h1m2 0h2m3 0h2m2 0h3m-32 1h6m1 0h3m1 0h4m1 0h1m1 0h1m2 0h1m1 0h1m1 0h6m-25 1h1m3 0h5m1 0h2m4 0h4m1 0h2m3 0h1m-33 1h1m2 0h1m4 0h1m2 0h1m4 0h5m2 0h1m1 0h3m1 0h2m1 0h1m-33 1h2m1 0h1m2 0h1m1 0h3m1 0h2m1 0h1m1 0h1m3 0h2m2 0h4m1 0h1m-30 1h2m2 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h3m1 0h3m1 0h1m1 0h6m-33 1h2m2 0h3m3 0h3m3 0h1m3 0h1m3 0h2m1 0h3m1 0h2m-33 1h2m1 0h1m6 0h1m4 0h1m2 0h2m1 0h6m3 0h1m1 0h1m-33 1h1m1 0h5m3 0h3m2 0h3m3 0h1m2 0h1m2 0h5m-32 1h1m1 0h1m7 0h3m2 0h1m3 0h6m1 0h2m1 0h4m-33 1h1m3 0h3m1 0h2m1 0h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h6m-22 1h1m1 0h3m1 0h1m1 0h1m1 0h5m1 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m2 0h1m1 0h2m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h2m1 0h2m1 0h3m3 0h2m1 0h2m3 0h4m-32 1h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h1m1 0h1m3 0h6m2 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h3m1 0h1m1 0h5m2 0h5m-33 1h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h1m4 0h1m5 0h1m1 0h2m2 0h1m-31 1h1m5 0h1m2 0h3m2 0h1m1 0h1m2 0h1m1 0h1m1 0h1m4 0h3m-31 1h7m1 0h2m1 0h1m2 0h1m1 0h2m4 0h4m1 0h1m1 0h1m1 0h1\"/><\/svg>"};
+const PREFIX = D.prefix;
+const DAY = 864e5;
+const T0 = (()=>{ const t = new Date(); t.setHours(0,0,0,0); return t; })();
+const dt = off => new Date(T0.getTime() + off * DAY);
+const fDate = d => d.toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'}).replace(/\./g, '');
+const fTime = d => d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', hour12:false});
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iniciales = n => { const p = n.split(' ').filter(Boolean); return (p[0][0] + (p.length >= 3 ? p[p.length - 2][0] : p[p.length - 1][0])).toUpperCase(); };
+const workerById = id => D.workers.find(w => w.id === id);
+
+const NIVELES = [
+  {n:0, t:'Sin acceso', ve:'No ve nada; puede solicitar acceso a RH'},
+  {n:1, t:'Supervisor', ve:'Ve equipos autorizados y vigencias'},
+  {n:2, t:'EHS / Capacitación', ve:'Ve todo: documentos, registro y credenciales'},
+  {n:3, t:'Administrador', ve:'Ve todo y decide quién tiene acceso'}
+];
+const NIVEL_INICIAL = {sup:1, ehs:2, rh:3, rob:0, none:0};
+const USERS = [
+  {id:'sup',  nombre:'Carlos Ibarra',   rol:'Supervisor de turno'},
+  {id:'ehs',  nombre:'Paola Medina',    rol:'EHS / Capacitación'},
+  {id:'rh',   nombre:'Laura Quiroga',   rol:'Recursos Humanos'},
+  {id:'rob',  nombre:'Roberto Salinas', rol:'Jefe de mantenimiento'},
+  {id:'none', nombre:'Javier Lozano',   rol:'Operador'}
+];
+USERS.forEach(u => u.nivel = NIVEL_INICIAL[u.id]);
+const userById = id => USERS.find(u => u.id === id);
+
+const S = { user:null, view:'login', wid:null, msg:null, doc:null, aviso:null, log:[], last:Date.now(), solicitudes:[], pendiente:null };
+function guardar(){ try { localStorage.setItem('mhqr', JSON.stringify({niveles:USERS.map(u => [u.id, u.nivel]), sol:S.solicitudes.map(x => ({u:x.u.id, t:+x.t, wid:x.wid}))})); } catch (e) {} }
+(function cargar(){ try { const d = JSON.parse(localStorage.getItem('mhqr') || 'null'); if (!d) return; d.niveles.forEach(([id, n]) => { const u = userById(id); if (u && n >= 0 && n <= 3) u.nivel = n; }); S.solicitudes = d.sol.map(x => ({u:userById(x.u), t:new Date(x.t), wid:x.wid})).filter(x => x.u); } catch (e) {} })();
+(function seed(){
+  const at = (off, h, m) => new Date(dt(off).getTime() + (h * 60 + m) * 60000);
+  S.log.push({t:at(-1, 6, 12),  u:userById('sup'), acc:'Consultó perfil (foto del QR)', wid:'MH-0187', ok:true});
+  S.log.push({t:at(-1, 7, 40),  u:userById('none'), acc:'Intentó consultar perfil', wid:'MH-0142', ok:false});
+  S.log.push({t:at(-1, 11, 5),  u:userById('ehs'), acc:'Abrió DC-3: Operación de excavadora hidráulica', wid:'MH-0219', ok:true});
+  S.log.push({t:at(-1, 22, 48), u:userById('sup'), acc:'Consultó perfil (foto del QR)', wid:'MH-0255', ok:true});
+})();
+function registrar(acc, wid, ok){ S.log.push({t:new Date(), u:S.user, acc, wid, ok}); }
+
+function estado(off){
+  if (off === null || off === undefined) return {k:'na', t:'No aplica'};
+  if (off < 0) return {k:'bad', t:`Vencido hace ${-off} ${-off === 1 ? 'día' : 'días'}`};
+  if (off === 0) return {k:'warn', t:'Vence hoy'};
+  if (off <= 30) return {k:'warn', t:`Vence en ${off} ${off === 1 ? 'día' : 'días'}`};
+  return {k:'ok', t:'Vigente'};
+}
+
+function evaluar(w){
+  const licVencida = !!(w.licencia && w.licencia.vence < 0);
+  const eqs = w.equipos.map(e => {
+    let s = estado(e.vence), motivo;
+    if (licVencida) { s = {k:'bad', t:'No autorizado'}; motivo = `Licencia interna vencida el ${fDate(dt(w.licencia.vence))}`; }
+    else if (s.k === 'bad') { s = {k:'bad', t:'No autorizado'}; motivo = `Autorización vencida el ${fDate(dt(e.vence))}`; }
+    else if (s.k === 'warn') { motivo = `Vence el ${fDate(dt(e.vence))}. Programar reevaluación.`; }
+    else { motivo = `Vigente hasta el ${fDate(dt(e.vence))}`; }
+    return {...e, s, motivo};
+  });
+  const permit = eqs.filter(e => e.s.k !== 'bad');
+  const no = eqs.filter(e => e.s.k === 'bad');
+  const pronto = eqs.filter(e => e.s.k === 'warn').length;
+  let v;
+  if (!eqs.length) v = {k:'na', titulo:'Sin equipos autorizados', sub: w.entrenamiento ? 'Está en entrenamiento. No puede operar equipo sin supervisión.' : 'No tiene equipos asignados.'};
+  else if (!permit.length) v = {k:'bad', titulo:'No autorizado para operar', sub: licVencida ? 'Su licencia interna está vencida. No debe operar ningún equipo hasta renovarla.' : 'Todas sus autorizaciones están vencidas.'};
+  else if (no.length) v = {k:'warn', titulo:`Autorizado para ${permit.length} de ${eqs.length} equipos`, sub:`No puede operar: ${no.map(e => e.eq).join(', ')}.`};
+  else v = {k:'ok', titulo: eqs.length === 1 ? 'Autorizado para operar su equipo' : `Autorizado para operar sus ${eqs.length} equipos`, sub: pronto ? (pronto === 1 ? 'Una autorización vence en menos de 30 días.' : `${pronto} autorizaciones vencen en menos de 30 días.`) : 'Todas sus autorizaciones están vigentes.'};
+  return {eqs, v};
+}
+
+function documentos(w){
+  const out = [];
+  if (w.licencia) out.push({tipo:'Licencia interna', titulo:w.licencia.num, det:`Emitida el ${fDate(dt(w.licencia.emitida))} · vence el ${fDate(dt(w.licencia.vence))}`, vence:w.licencia.vence});
+  w.dc3.forEach(c => out.push({tipo:'DC-3', titulo:c.curso, det:`${c.horas} h · emitida el ${fDate(dt(c.emitida))} · reentrenamiento antes del ${fDate(dt(c.vence))}`, vence:c.vence}));
+  if (w.ept) out.push({tipo:'EPT', titulo:'EPT', det:`Emitido el ${fDate(dt(w.ept.emitido))} · vence el ${fDate(dt(w.ept.vence))}`, vence:w.ept.vence});
+  return out;
+}
+
+function normalizar(raw){
+  const s = String(raw || '').trim().toUpperCase();
+  const h = s.match(/#(MH-\d{4})$/); if (h) return h[1];
+  if (s.startsWith(PREFIX)) return s.slice(PREFIX.length);
+  if (/^MH-\d{4}$/.test(s)) return s;
+  if (/^\d{4}$/.test(s)) return 'MH-' + s;
+  return null;
+}
+
+function consultar(raw, origen){
+  const code = normalizar(raw);
+  if (!code) { S.msg = {k:'bad', t:'Ese QR no es de la matriz de habilidades. Debe contener MATRIZ-HAB seguido del código del trabajador.'}; render(); return; }
+  const w = workerById(code);
+  if (!w) { S.msg = {k:'bad', t:`No hay ningún trabajador con el código ${code}.`}; render(); return; }
+  S.msg = null;
+  if (S.user.nivel < 1) { registrar('Intentó consultar perfil', code, false); S.wid = code; S.view = 'denegado'; render(); window.scrollTo(0, 0); return; }
+  registrar(`Consultó perfil (${origen})`, code, true);
+  S.wid = code; S.view = 'perfil'; render(); window.scrollTo(0, 0);
+}
+
+async function cargarImagen(file){
+  try { return await createImageBitmap(file); }
+  catch (e) {
+    return await new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = URL.createObjectURL(file); });
+  }
+}
+async function decodificar(file){
+  const img = await cargarImagen(file);
+  const w0 = img.width || img.naturalWidth, h0 = img.height || img.naturalHeight;
+  const intentos = [1400, 900, 2000];
+  for (const max of intentos) {
+    const sc = Math.min(1, max / Math.max(w0, h0));
+    const c = document.createElement('canvas'); c.width = Math.round(w0 * sc); c.height = Math.round(h0 * sc);
+    const ctx = c.getContext('2d', {willReadFrequently:true}); ctx.drawImage(img, 0, 0, c.width, c.height);
+    if ('BarcodeDetector' in window) {
+      try { const det = new BarcodeDetector({formats:['qr_code']}); const r = await det.detect(c); if (r.length) return r[0].rawValue; } catch (e) {}
+    }
+    if (window.jsQR) {
+      const id = ctx.getImageData(0, 0, c.width, c.height);
+      const r = jsQR(id.data, c.width, c.height, {inversionAttempts:'attemptBoth'});
+      if (r && r.data) return r.data;
+    }
+  }
+  return null;
+}
+
+/* ---------- vistas ---------- */
+const lockSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>';
+const camSVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8.5h3l1.5-2h7L17 8.5h3v10H4z"/><circle cx="12" cy="13.3" r="3.4"/></svg>';
+
+function vHeader(){
+  const u = S.user;
+  const tabs = !u ? '' : [['verificar','Verificar',0],['registro','Registro',2],['credenciales','Credenciales',2],['accesos','Accesos',3],['seguridad','Seguridad',0]]
+    .filter(t => u.nivel >= t[2])
+    .map(t => `<button data-act="go" data-v="${t[0]}" ${curTab() === t[0] ? 'aria-current="page"' : ''}>${t[1]}</button>`).join('');
+  return `<header class="top"><div class="top-in"><span class="brand">Matriz de habilidades</span><span class="tag${u ? ' tag-u' : ''}">MUESTRA</span>
+    ${u ? `<div class="session"><div class="s-full"><b>${esc(u.nombre)}</b><span>${esc(u.rol)}</span></div><span class="ini ini-s" title="${esc(u.nombre)} · ${esc(u.rol)}">${esc(iniciales(u.nombre))}</span><button class="btn small" data-act="logout">Salir</button></div>` : ''}
+    </div>${tabs ? `<nav class="tabs" aria-label="Secciones">${tabs}</nav>` : ''}</header>`;
+}
+function curTab(){ return ({perfil:'verificar', denegado:'verificar'})[S.view] || S.view; }
+
+function vLogin(){
+  return `<main class="wrap fade">
+    <div class="section"><h1>Verificación de operadores</h1>
+      <p class="lead">Escanea el QR de la licencia o del casco para saber qué equipos puede operar la persona y si su documentación está vigente.</p><p class="small muted">Propuesta de César Alexis Cisneros Cruz · Técnico de Seguridad Industrial</p></div>
+    ${S.aviso ? `<div class="msg k-warn" role="status">${esc(S.aviso)}</div>` : ''}
+    ${S.pendiente ? `<div class="msg k-na" role="status">Escaneaste el QR <span class="mono">${esc(S.pendiente)}</span>. Inicia sesión para ver si la persona está autorizada.</div>` : ''}
+    <div class="card"><h2>Inicia sesión</h2>
+      <p class="small muted">Inicio de sesión simulado. En la versión real se entra con la cuenta Microsoft de la empresa, y solo las cuentas del grupo autorizado pueden ver información.</p>
+      <div class="section">${USERS.map(u => `<button class="acct" data-act="login" data-v="${u.id}"><span class="ini">${esc(iniciales(u.nombre))}</span><span><b>${esc(u.nombre)} · ${esc(u.rol)}</b><span class="small">${esc(NIVELES[u.nivel].t)}: ${esc(NIVELES[u.nivel].ve)}</span></span><span class="lvl">NIVEL ${u.nivel}</span></button>`).join('')}</div>
+    </div>
+    <button class="btn link" data-act="go" data-v="seguridad">Cómo se protege la información</button>
+  </main>`;
+}
+
+function vVerificar(){
+  return `<main class="wrap fade">
+    <div class="section"><h1>Verificar trabajador</h1>
+      <p class="lead">El QR puede ser de la licencia o de la etiqueta del casco.</p></div>
+    <div class="card">
+      <label class="btn primary big" for="foto">${camSVG} Tomar foto del QR<input id="foto" type="file" accept="image/*"></label>
+      <p class="small muted">Se abre la cámara o la galería. Que el QR salga completo y enfocado.</p>
+      <div id="scanmsg" class="msg ${S.msg ? 'k-' + S.msg.k : ''}" role="status" aria-live="polite">${S.msg ? esc(S.msg.t) : ''}</div>
+    </div>
+    <div class="card"><h2>Escribir código</h2>
+      <form class="inline" id="f-codigo"><label for="codigo" class="small muted" style="position:absolute;left:-9999px">Código del trabajador</label><input id="codigo" placeholder="MH-0142" autocomplete="off" inputmode="text"><button class="btn primary" type="submit">Buscar</button></form>
+    </div>
+    <div class="card"><h2>Probar sin QR</h2>
+      <p class="small muted">Trabajadores inventados para la muestra. Cada uno tiene un caso distinto.</p>
+      <div class="tests">${D.workers.map(w => `<button data-act="probar" data-v="${w.id}">${esc(w.nombre.split(' ').slice(0, 1).join(' '))} ${esc(w.nombre.split(' ').slice(-2, -1).join(' '))}<span class="mono">${w.id}</span></button>`).join('')}</div>
+    </div>
+  </main>`;
+}
+
+function vDenegado(){
+  return `<main class="wrap fade">
+    <div class="verdict k-bad"><h2>Acceso denegado</h2>
+      <p>Tu cuenta (${esc(S.user.nombre)} · ${esc(S.user.rol)}) no está en el grupo autorizado para consultar la matriz de habilidades.</p></div>
+    <div class="card"><p>El intento quedó registrado con tu nombre, la fecha y la hora. Si lo necesitas para tu trabajo, solicita acceso: RH revisa la solicitud y decide.</p>
+      ${(() => { const ya = S.solicitudes.find(x => x.u.id === S.user.id); return ya
+        ? `<div class="msg k-na" role="status">Tu solicitud está con RH desde las ${fTime(ya.t)}. Cuando la aprueben, vuelve a escanear el QR.</div>`
+        : `<button class="btn primary" data-act="solicitar">Solicitar acceso a RH</button>`; })()}
+      <button class="btn" data-act="go" data-v="verificar">Volver</button></div>
+  </main>`;
+}
+
+function vPerfil(){
+  const w = workerById(S.wid); const {eqs, v} = evaluar(w); const u = S.user;
+  const docs = documentos(w);
+  const rowsEq = eqs.length ? eqs.map(e => `<div class="row ${e.s.k === 'bad' ? 'bad' : ''}"><span class="t">${esc(e.eq)}</span><span class="chip k-${e.s.k}">${esc(e.s.t)}</span><span class="d">${esc(e.modelo)} · ${esc(e.motivo)}</span></div>`).join('')
+    : `<div class="row"><span class="t">Ninguno</span><span class="chip k-na">Sin autorización</span>${w.entrenamiento ? `<span class="d">En entrenamiento: ${esc(w.entrenamiento)}</span>` : ''}</div>`;
+  const lic = w.licencia ? estado(w.licencia.vence) : {k:'na', t:'Sin licencia'};
+  const docsHTML = u.nivel >= 2
+    ? `<div class="card"><div class="rows">${docs.map((d, i) => { const s = estado(d.vence); return `<div class="row"><span class="t">${esc(d.tipo)}${d.tipo !== d.titulo ? ': ' + esc(d.titulo) : ''}</span><span class="chip k-${s.k}">${esc(s.t)}</span><span class="d">${esc(d.det)}</span><span class="acts"><button class="btn small" data-act="doc" data-v="${i}">Ver documento</button></span></div>`; }).join('')}</div></div>`
+    : `<div class="card"><div class="locked">${lockSVG}<span>Los documentos (licencia, DC-3 y EPT) solo los ven EHS y Capacitación.</span></div></div>`;
+  return `<main class="wrap fade protegido" id="perfil"><div class="wm"></div>
+    <button class="btn link" data-act="go" data-v="verificar">‹ Verificar a otra persona</button>
+    <div class="who"><div class="foto" title="Foto del trabajador">${esc(iniciales(w.nombre))}</div>
+      <div><h1>${esc(w.nombre)}</h1><div class="meta"><span class="mono">${w.id}</span> · ${esc(w.puesto)}<br>${esc(w.area)} · Turno ${esc(w.turno)}</div></div></div>
+    <div class="verdict k-${v.k}"><h2>${esc(v.titulo)}</h2><p>${esc(v.sub)}</p></div>
+    <div class="section"><h2>Equipos</h2><div class="card"><div class="rows">${rowsEq}</div></div></div>
+    <div class="section"><h2>Licencia interna</h2><div class="card"><div class="rows"><div class="row"><span class="t">${w.licencia ? esc(w.licencia.num) : 'No tiene'}</span><span class="chip k-${lic.k}">${esc(lic.t)}</span>${w.licencia ? `<span class="d">Vence el ${fDate(dt(w.licencia.vence))}</span>` : ''}</div></div></div></div>
+    <div class="section"><h2>Documentación</h2>${docsHTML}</div>
+    <p class="foot">Consulta registrada el ${fDate(new Date())} a las ${fTime(new Date())} por ${esc(u.nombre)}. La marca de agua con tu nombre aparece en cualquier captura de esta pantalla.</p>
+  </main>`;
+}
+
+function vDoc(){
+  const w = workerById(S.wid); const d = documentos(w)[S.doc]; const s = estado(d.vence);
+  return `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="doc-t"><div class="sheet">
+    <div class="sheet-head"><div><div class="small muted">${esc(d.tipo)} · <span class="mono">${w.id}</span></div><h3 id="doc-t">${esc(d.titulo)}</h3></div><button class="btn small" data-act="cerrar-doc">Cerrar</button></div>
+    <div class="docpage protegido"><div class="wm"></div>
+      <div class="doc-band">${esc(d.tipo)} · documento de ejemplo</div>
+      <dl><dt>Trabajador</dt><dd>${esc(w.nombre)}</dd><dt>Código</dt><dd class="mono">${w.id}</dd><dt>Documento</dt><dd>${esc(d.titulo)}</dd><dt>Datos</dt><dd>${esc(d.det)}</dd><dt>Estado</dt><dd><span class="chip k-${s.k}">${esc(s.t)}</span></dd></dl>
+      <div class="doc-scan">Aquí se ve el PDF escaneado del documento original, en modo solo lectura.</div>
+    </div>
+    <p class="small muted">Sin botón de descarga ni de impresión. Esta consulta quedó registrada.</p>
+  </div></div>`;
+}
+
+function vRegistro(){
+  const hoy = S.log.filter(l => l.t >= T0);
+  const rows = [...S.log].reverse().map(l => {
+    const w = workerById(l.wid);
+    const cuando = l.t >= T0 ? fTime(l.t) : 'ayer<br>' + fTime(l.t);
+    return `<div class="log-row"><span class="h">${cuando}</span><span><b>${esc(l.u.nombre)}</b> · ${esc(l.acc)}${l.wid ? `<span class="w"><br><span class="mono">${l.wid}</span> ${w ? esc(w.nombre) : ''}</span>` : ''}</span><span class="chip ${l.ok === null ? 'k-na' : l.ok ? 'k-ok' : 'k-bad'}">${l.ok === null ? 'Solicitud' : l.ok ? 'Permitido' : 'Denegado'}</span></div>`;
+  }).join('');
+  return `<main class="wrap fade">
+    <div class="section"><h1>Registro de consultas</h1><p class="lead">Quién vio a quién, cuándo, y quién intentó entrar sin permiso.</p></div>
+    <div class="log-sum"><div class="stat"><b>${hoy.length}</b><span>movimientos hoy</span></div><div class="stat"><b>${hoy.filter(l => l.acc.startsWith('Abrió')).length}</b><span>documentos abiertos hoy</span></div><div class="stat"><b>${S.log.filter(l => l.ok === false).length}</b><span>intentos denegados</span></div></div>
+    <div class="card">${rows}</div>
+  </main>`;
+}
+
+function credHTML(w){
+  return `<div class="cred-pair">
+    <div class="cred" role="img" aria-label="Credencial de ${esc(w.nombre)}"><div class="cred-l"><div class="cred-band">Licencia interna de operación</div>
+      <div class="cred-body"><div class="cred-foto">${esc(iniciales(w.nombre))}</div><div><div class="cred-n">${esc(w.nombre)}</div><div class="cred-id">${w.id}</div><div class="cred-p">${esc(w.puesto)}</div></div>
+      <div class="cred-note">Equipos autorizados y vigencias: escanear el QR e iniciar sesión.</div></div></div>
+      <div class="cred-r">${QRS[w.id]}<span class="mono">${w.id}</span></div></div>
+    <div class="sticker" role="img" aria-label="Etiqueta de casco de ${esc(w.nombre)}">${QRS[w.id]}<span class="mono">${w.id}</span><span class="s">Solo personal autorizado</span></div>
+  </div>`;
+}
+function vCredenciales(){
+  return `<main class="wrap fade">
+    <div class="section"><h1>Credenciales y etiquetas</h1>
+      <p class="lead">La licencia ya no necesita traer impresos los equipos: eso vive en la base de datos y se ve al escanear. Si alguien renueva o pierde una autorización, la credencial sigue sirviendo.</p>
+      <p class="small muted">El QR solo trae un link con el código del trabajador. Se puede escanear con cualquier cámara: abre esta página y pide iniciar sesión antes de mostrar algo.</p></div>
+    <div class="creds">${D.workers.map(credHTML).join('')}</div>
+  </main>`;
+}
+
+function vSeguridad(){
+  const it = (t, p, real) => `<div class="sec-item${real ? ' real' : ''}"><h3>${t}</h3><p>${p}</p></div>`;
+  return `<main class="wrap fade">
+    ${S.user ? '' : '<button class="btn link" data-act="go" data-v="login">‹ Volver al inicio de sesión</button>'}
+    <div class="section"><h1>Cómo se protege la información</h1><p class="lead">Lo que hace esta muestra y cómo se logra en la versión real con Microsoft 365.</p></div>
+    <div class="card">
+      ${it('Solo entra el grupo autorizado', 'Supervisores ven equipos y vigencias. EHS y Capacitación ven además documentos, registro y credenciales. Cualquier otra cuenta no ve nada. En la versión real, la app y la lista se comparten solo con un grupo de seguridad de la empresa.')}
+      ${it('RH decide quién entra', 'Quien no tiene permiso puede tocar Solicitar acceso. RH ve la solicitud, la aprueba como Supervisor o EHS, o la rechaza, y puede quitar el acceso cuando quiera. Todo queda en el registro.')}
+      ${it('El QR no trae datos', 'Solo trae un link con el código del trabajador. Cualquiera puede escanearlo con su cámara, pero al abrirse pide iniciar sesión, y sin permiso no ve ningún dato.')}
+      ${it('Documentos de solo lectura', 'Se ven en pantalla, sin descarga ni impresión. En SharePoint se logra con permisos de solo vista o con la política de bloqueo de descargas que configura el administrador.')}
+      ${it('Marca de agua con nombre y hora', 'Cada pantalla con datos lleva el nombre de quien consulta y la hora. Si alguien toma captura, se sabe de quién salió.')}
+      ${it('Registro de cada consulta', 'Queda guardado quién vio a quién, cuándo, qué documento abrió y cada intento sin permiso.')}
+      ${it('Bloqueo por inactividad', 'La sesión se cierra sola a los 3 minutos sin uso, y la pantalla se difumina si cambias de app.')}
+      ${it('Capturas de pantalla', 'Una página web no puede impedirlas. En la versión real, en celulares de la empresa administrados con Microsoft Intune, sistemas puede bloquear las capturas dentro de las apps de Microsoft. En celulares personales lo que protege es la marca de agua y el registro.', true)}
+    </div>
+  </main>`;
+}
+
+function vAccesos(){
+  const sol = S.solicitudes;
+  const opts = n => NIVELES.slice(0, 3).map(l => `<option value="${l.n}" ${l.n === n ? 'selected' : ''}>${l.t}</option>`).join('');
+  const solHTML = sol.length ? sol.map((x, i) => `<div class="card"><div><b>${esc(x.u.nombre)}</b> · ${esc(x.u.rol)}<div class="small muted">Pidió acceso a las ${fTime(x.t)} al intentar consultar <span class="mono">${x.wid}</span></div></div>
+      <div class="btns"><button class="btn small primary" data-act="aprobar" data-v="${i}:1">Aprobar como Supervisor</button><button class="btn small" data-act="aprobar" data-v="${i}:2">Aprobar como EHS</button><button class="btn small" data-act="rechazar" data-v="${i}">Rechazar</button></div></div>`).join('')
+    : `<div class="card"><p class="muted">No hay solicitudes. Para probar: sal, entra como Javier Lozano o Roberto Salinas, escanea un QR y toca Solicitar acceso.</p></div>`;
+  const quien = USERS.map(u => `<div class="row"><span class="t">${esc(u.nombre)}<span class="sub">${esc(u.rol)}</span></span>${u.id === S.user.id
+      ? `<span class="chip k-ok">${NIVELES[u.nivel].t} (tú)</span>`
+      : `<select data-user="${u.id}" aria-label="Nivel de acceso de ${esc(u.nombre)}">${opts(u.nivel)}</select>`}</div>`).join('');
+  return `<main class="wrap fade">
+    <div class="section"><h1>Accesos</h1><p class="lead">RH decide quién puede consultar la matriz y con qué nivel. En la versión real, sistemas aplica estos permisos en el grupo de Microsoft.</p></div>
+    <div class="section"><h2>Solicitudes pendientes${sol.length ? ` (${sol.length})` : ''}</h2>${solHTML}</div>
+    <div class="section"><h2>Quién tiene acceso</h2><div class="card"><div class="rows">${quien}</div></div>
+      <p class="small muted">En esta muestra los cambios se guardan solo en este celular. En la versión real aplican para todos.</p>
+      <button class="btn small" data-act="reset">Restablecer la muestra</button></div>
+  </main>`;
+}
+
+/* ---------- render y eventos ---------- */
+const app = document.getElementById('app');
+function wmURL(){
+  const ink = getComputedStyle(document.body).color;
+  const u = S.user, now = new Date();
+  const l1 = `${u.nombre} · ${u.rol}`, l2 = `${fDate(now)} ${fTime(now)} · consulta ${S.log.length}`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="190"><g transform="rotate(-24 150 95)" fill="${ink}" font-family="IBM Plex Mono, monospace" font-size="12.5"><text x="0" y="78">${esc(l1)}</text><text x="18" y="98">${esc(l2)}</text><text x="40" y="160" font-size="11" letter-spacing="2">CONFIDENCIAL</text></g></svg>`;
+  return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
+}
+function render(){
+  let body;
+  if (!S.user) body = S.view === 'seguridad' ? vSeguridad() : vLogin();
+  else {
+    const NEED = {registro:2, credenciales:2, accesos:3, perfil:1};
+    if ((NEED[S.view] || 0) > S.user.nivel) S.view = 'verificar';
+    body = ({verificar:vVerificar, perfil:vPerfil, denegado:vDenegado, registro:vRegistro, credenciales:vCredenciales, accesos:vAccesos, seguridad:vSeguridad})[S.view]?.() ?? vVerificar();
+  }
+  app.innerHTML = vHeader() + body + (S.user && S.view === 'perfil' && S.doc !== null ? vDoc() : '');
+  if (S.user) { const url = wmURL(); app.querySelectorAll('.wm').forEach(el => el.style.backgroundImage = url); }
+}
+function login(id){
+  S.user = userById(id); S.view = 'verificar'; S.msg = null; S.aviso = null; S.last = Date.now();
+  if (S.pendiente) { const p = S.pendiente; S.pendiente = null; consultar(p, 'QR escaneado con la cámara'); }
+  else render();
+}
+function logout(aviso){ S.user = null; S.view = 'login'; S.wid = null; S.doc = null; S.msg = null; S.aviso = aviso || null; render(); window.scrollTo(0, 0); }
+function go(v){
+  if (!S.user && v !== 'seguridad') { S.view = 'login'; }
+  else S.view = v;
+  if (v !== 'perfil') S.doc = null;
+  S.msg = null; render(); window.scrollTo(0, 0);
+}
+
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, v = b.dataset.v;
+  if (a === 'login') login(v);
+  else if (a === 'logout') logout();
+  else if (a === 'go') go(v);
+  else if (a === 'probar') consultar(PREFIX + v, 'prueba');
+  else if (a === 'doc') { const w = workerById(S.wid); const d = documentos(w)[+v]; registrar(`Abrió ${d.tipo}: ${d.titulo}`, w.id, true); S.doc = +v; render(); }
+  else if (a === 'cerrar-doc') { S.doc = null; render(); }
+  else if (a === 'solicitar') { S.solicitudes.push({u:S.user, t:new Date(), wid:S.wid}); S.log.push({t:new Date(), u:S.user, acc:'Solicitó acceso', wid:S.wid, ok:null}); guardar(); render(); }
+  else if (a === 'aprobar') { const [i, n] = v.split(':').map(Number); const x = S.solicitudes[i]; if (!x) return; x.u.nivel = n; registrar(`Aprobó el acceso de ${x.u.nombre} como ${NIVELES[n].t}`, x.wid, true); S.solicitudes.splice(i, 1); guardar(); render(); }
+  else if (a === 'rechazar') { const x = S.solicitudes[+v]; if (!x) return; registrar(`Rechazó la solicitud de ${x.u.nombre}`, x.wid, true); S.solicitudes.splice(+v, 1); guardar(); render(); }
+  else if (a === 'reset') { USERS.forEach(u => u.nivel = NIVEL_INICIAL[u.id]); S.solicitudes = []; try { localStorage.removeItem('mhqr'); } catch (e) {} registrar('Restableció la muestra', '', true); render(); }
+});
+app.addEventListener('submit', e => { e.preventDefault(); if (e.target.id === 'f-codigo') consultar(document.getElementById('codigo').value, 'código escrito'); });
+app.addEventListener('change', async e => {
+  if (e.target.matches && e.target.matches('select[data-user]')) {
+    const u = userById(e.target.dataset.user), n = +e.target.value;
+    if (u && u.nivel !== n) { u.nivel = n; registrar(`Cambió el acceso de ${u.nombre} a ${NIVELES[n].t}`, '', true); guardar(); render(); }
+    return;
+  }
+  if (e.target.id !== 'foto') return;
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const box = document.getElementById('scanmsg');
+  box.className = 'msg k-na'; box.textContent = 'Leyendo el QR…';
+  try {
+    const txt = await decodificar(f);
+    if (txt) consultar(txt, 'foto del QR');
+    else { S.msg = {k:'bad', t:'No encontré un QR en la foto. Acércate para que salga completo, derecho y enfocado.'}; render(); }
+  } catch (err) { S.msg = {k:'bad', t:'No pude abrir esa imagen. Prueba con otra foto.'}; render(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.doc !== null) { S.doc = null; render(); } });
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.protegido')) e.preventDefault(); });
+document.addEventListener('copy', e => { const sel = document.getSelection(); if (sel && sel.anchorNode && sel.anchorNode.parentElement && sel.anchorNode.parentElement.closest('.protegido')) e.preventDefault(); });
+document.addEventListener('visibilitychange', () => document.body.classList.toggle('oculto', document.hidden && !!S.user));
+['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev => window.addEventListener(ev, () => { S.last = Date.now(); }, {passive:true}));
+setInterval(() => { if (S.user && Date.now() - S.last > 180000) logout('Se cerró la sesión por 3 minutos sin uso.'); }, 10000);
+function leerHash(){
+  const m = (location.hash || '').match(/^#(mh-\d{4})$/i); if (!m) return false;
+  const id = m[1].toUpperCase();
+  if (S.user) consultar(id, 'QR escaneado con la cámara'); else { S.pendiente = id; S.view = 'login'; render(); }
+  return true;
+}
+window.addEventListener('hashchange', leerHash);
+if (!leerHash()) render();
+</script>
+</body>
+</html>
